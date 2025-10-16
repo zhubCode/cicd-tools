@@ -1,0 +1,462 @@
+---
+# Source: atlantis/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: atlantis
+  namespace: atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+---
+# Source: atlantis/templates/secret-webhook.yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: atlantis-webhook
+  namespace: atlantis
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: atlantis-webhook
+  data:
+    - secretKey: gitlab-user
+      remoteRef:
+        key: /zyql/infra/gitlab/atlantis/webhook/secret
+        property: gitlab-user
+    - secretKey: gitlab-token
+      remoteRef:
+        key: /zyql/infra/gitlab/atlantis/webhook/secret
+        property: gitlab-token
+    - secretKey: gitlab-secret
+      remoteRef:
+        key: /zyql/infra/gitlab/atlantis/webhook/secret
+        property: gitlab-secret
+---
+# Source: atlantis/templates/secret-cloud.yaml
+# This secret is used to store cloud provider credentials.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cloud-secrets
+  namespace: atlantis
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: cloud-secrets
+  data:
+    - secretKey: alicloud-access-key
+      remoteRef:
+        key: acs/ram/user/terraform-assume
+        property: AccessKeyId
+    - secretKey: alicloud-secret-key
+      remoteRef:
+        key: acs/ram/user/terraform-assume
+        property: AccessKeySecret
+    - secretKey: jumpserver-password
+      remoteRef:
+        key: /zyql/infra/jumpserver/atlantis/secret
+        property: jumpserver-password
+    - secretKey: jumpserver-username
+      remoteRef:
+        key: /zyql/infra/jumpserver/atlantis/secret
+        property: jumpserver-username
+    - secretKey: volcengine-access-key
+      remoteRef:
+        key: /zyql/infra/volcengine/atlantis/terraform-admin/secret
+        property: access-key-id
+    - secretKey: volcengine-secret-key
+      remoteRef:
+        key: /zyql/infra/volcengine/atlantis/terraform-admin/secret
+        property: access-key-secret
+---
+# Source: atlantis/templates/configmap-repo-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-repo-config
+  namespace: atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+data:
+  repos.yaml: |
+    ---
+    repos:
+    - id: /.*/
+      apply_requirements: [approved]
+      allowed_overrides: [apply_requirements, workflow]
+      allow_custom_workflows: true
+      workflow: default
+    
+    workflows:
+      infra:
+        plan:
+          steps:
+          - init
+          - plan
+        apply:
+          steps:
+          - run: /atlantis/scripts/apply-gate
+          - apply
+---
+# Source: atlantis/templates/tests/test-atlantis-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-tests
+  namespace: atlantis
+data:
+  tests.bats: |-
+    setup() {
+      apk add curl -q
+    }
+    @test "Atlantis UI is available" {
+      ATLANTIS_URL=http://atlantis.atlantis.svc.cluster.local:80
+      echo "Trying Atlantis at: $ATLANTIS_URL"
+      curl -v $ATLANTIS_URL
+    }
+---
+# Source: atlantis/templates/configmap-apply-gate.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlantis-apply-gate
+  namespace: atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+data:
+  apply-gate: |
+    #!/bin/bash
+    set -e
+    
+    echo "=== Atlantis Apply Gate Check ==="
+    echo "Pull Request: $PULL_NUM"
+    echo "Repository: $HEAD_REPO_OWNER/$HEAD_REPO_NAME"
+    echo "================================="
+    
+    # Check required environment variables
+    if [ -z "$PULL_NUM" ] || [ -z "$HEAD_REPO_OWNER" ] || [ -z "$HEAD_REPO_NAME" ] || [ -z "$ATLANTIS_GITLAB_TOKEN" ]; then
+      echo "ERROR: Required Atlantis environment variables are not set"
+      echo "PULL_NUM: $PULL_NUM"
+      echo "HEAD_REPO_OWNER: $HEAD_REPO_OWNER"
+      echo "HEAD_REPO_NAME: $HEAD_REPO_NAME"
+      echo "ATLANTIS_GITLAB_TOKEN: ${ATLANTIS_GITLAB_TOKEN:+SET}"
+      exit 1
+    fi
+
+    # Check if MR is approved using curl and basic text parsing
+    echo "Checking approval status for MR $PULL_NUM..."
+
+    API_URL="https://git.zyql.com/api/v4/projects/$HEAD_REPO_OWNER%2F$HEAD_REPO_NAME/merge_requests/$PULL_NUM/approvals"
+    echo "API URL: $API_URL"
+
+    # Call GitLab API to check approval status
+    RESPONSE=$(curl -s -H "Authorization: Bearer $ATLANTIS_GITLAB_TOKEN" "$API_URL")
+    
+    if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to call GitLab API"
+      exit 1
+    fi
+
+    # Check if response contains error using grep
+    if echo "$RESPONSE" | grep -q '"message"'; then
+      echo "ERROR: GitLab API returned error"
+      echo "Response: $RESPONSE"
+      exit 1
+    fi
+
+    # Simple check for approved_by array - if it contains user info, it's approved
+    if echo "$RESPONSE" | grep -q '"approved_by":\[\]'; then
+      echo ""
+      echo "❌ APPLY BLOCKED: Merge request must be approved before applying!"
+      echo "Please ask a maintainer to approve this MR first."
+      echo ""
+      echo "API Response: $RESPONSE"
+      exit 1
+    elif echo "$RESPONSE" | grep -q '"approved_by":\['; then
+      echo ""
+      echo "✅ APPLY APPROVED: MR has been approved, proceeding with apply..."
+      echo ""
+      # Extract approver names using sed (basic text processing)
+      echo "Approval details:"
+      echo "$RESPONSE"
+      echo ""
+    else
+      echo "WARNING: Unable to determine approval status, proceeding with caution..."
+      echo "Response: $RESPONSE"
+    fi
+---
+# Source: atlantis/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: atlantis-data
+  namespace: atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+spec:
+  accessModes: 
+  - ReadWriteOnce
+  resources:
+    requests:
+      # The biggest thing Atlantis stores is the Git repo when it checks it out.
+      # It deletes the repo after the pull request is merged.
+      storage: 100Gi
+  storageClassName: alicloud-nas
+---
+# Source: atlantis/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlantis
+  namespace: atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4141
+      targetPort: 4141
+      protocol: TCP
+      name: atlantis
+  selector:
+    app: atlantis
+    release: atlantis
+---
+# Source: atlantis/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: atlantis
+  namespace: atlantis
+  labels:
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+spec:
+  serviceName: atlantis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlantis
+      release: atlantis
+  template:
+    metadata:
+      labels:
+        app: atlantis
+        release: atlantis
+      annotations:
+        checksum/config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/repo-config: 06e1ddb1d106a31884225122d2a76565141dd32f55d7775b4682236111bb9cd1
+    spec:
+      hostNetwork: false
+      serviceAccountName: atlantis
+      shareProcessNamespace: false
+      automountServiceAccountToken: true
+      securityContext: 
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsUser: 100
+      volumes:
+      - name: atlantis-data
+        persistentVolumeClaim:
+          claimName: atlantis-data
+      - name: repo-config
+        configMap:
+          name:  atlantis-repo-config
+      - name: apply-gate-script
+        configMap:
+          name: atlantis-apply-gate
+          defaultMode: 0755
+      containers:
+        - name: atlantis
+          image: "ghcr.io/runatlantis/atlantis:v0.35.1"
+          imagePullPolicy: Always
+          args:
+            - server
+          ports:
+          - name: atlantis
+            containerPort: 4141
+          env:
+          - name: PATH
+            value: /plugins:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          - name: ATLANTIS_DEFAULT_TF_DISTRIBUTION
+            value: terraform
+          - name: ATLANTIS_LOG_LEVEL
+            value: "info"
+          - name: ATLANTIS_DATA_DIR
+            value: /atlantis/data
+          - name: ATLANTIS_REPO_ALLOWLIST
+            value: "git.zyql.com/infra/iac"
+          - name: ATLANTIS_PORT
+            value: "4141"
+          - name: ATLANTIS_REPO_CONFIG
+            value: /etc/atlantis/repos.yaml
+          - name: TF_PLUGIN_CACHE_MAY_BREAK_DEPENDENCY_LOCK_FILE
+            value: "true"
+          - name: ATLANTIS_USE_TF_PLUGIN_CACHE
+            value: "false"
+          - name: ATLANTIS_PARALLEL_POOL_SIZE
+            value: "10"
+          - name: ATLANTIS_ATLANTIS_URL
+            value: https://atlantis.zyql.com
+          - name: ATLANTIS_GITLAB_USER
+            valueFrom:
+              secretKeyRef:
+                name: atlantis-webhook
+                key: gitlab-user
+          - name: ATLANTIS_GITLAB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: atlantis-webhook
+                key: gitlab-token
+          - name: ATLANTIS_GITLAB_WEBHOOK_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: atlantis-webhook
+                key: gitlab-secret
+          - name: ATLANTIS_GITLAB_HOSTNAME
+            value: git.zyql.com
+          - name: ALIBABA_CLOUD_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: cloud-secrets
+                key: alicloud-access-key
+          - name: ALIBABA_CLOUD_ACCESS_KEY_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: cloud-secrets
+                key: alicloud-secret-key
+          - name: VOLCENGINE_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloud-secrets
+                key: volcengine-access-key
+          - name: VOLCENGINE_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloud-secrets
+                key: volcengine-secret-key
+          - name: JUMPSERVER_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: cloud-secrets
+                key: jumpserver-username
+          - name: JUMPSERVER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: cloud-secrets
+                key: jumpserver-password
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 4141
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4141
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+          volumeMounts:
+          - name: atlantis-data
+            mountPath: /atlantis/data
+          - name: repo-config
+            mountPath: /etc/atlantis/repos.yaml
+            subPath: repos.yaml
+            readOnly: true
+          - name: apply-gate-script
+            mountPath: /atlantis/scripts
+            readOnly: true
+          resources:
+            {}
+---
+# Source: atlantis/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atlantis
+  namespace: atlantis
+  labels:
+    alb.ingress.kubernetes.io/hash: 0ac760517edd1c0af07f6e99434b13c956b590f59435ba5ba0ed9517
+    app: atlantis
+    chart: atlantis-5.18.2
+    helm.sh/chart: atlantis-5.18.2
+    release: atlantis
+    heritage: Helm
+spec:
+  ingressClassName: alb
+  rules:
+  - host: atlantis.zyql.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: atlantis
+            port:
+              number: 4141
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - atlantis.zyql.com
+    secretName: zyql.com
+---
+# Source: atlantis/templates/tests/test-atlantis-pod.yaml
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: "atlantis-ui-test"
+#   namespace: atlantis
+#   annotations:
+#     helm.sh/hook: test
+# spec:
+#   containers:
+#     - name: atlantis-ui-test
+#       image: bats/bats:1.9.0
+#       command: ["/usr/local/bin/bats", "/tests/"]
+#       volumeMounts:
+#       - mountPath: /tests
+#         name: tests
+#         readOnly: true
+#   volumes:
+#   - name: tests
+#     configMap:
+#       name: atlantis-tests
+#   restartPolicy: Never
