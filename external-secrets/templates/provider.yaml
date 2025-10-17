@@ -1,0 +1,41 @@
+{{- if (eq .Values.cloud "alicloud") }}
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: alibaba-rrsa-store
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  provider:
+    alibaba:
+      regionID: cn-shanghai
+      auth:
+        rrsa:
+          oidcProviderArn: acs:ram::1893149804346956:oidc-provider/ack-rrsa-caac1a2edb593462fac1a8bd532555e01
+          oidcTokenFilePath: /var/run/secrets/ack.alibabacloud.com/rrsa-tokens/oidc-token
+          roleArn: acs:ram::1893149804346956:role/external-secret-ack
+          sessionName: external-secrets
+{{- else if (eq .Values.cloud "volcengine") }}
+# Use This ClusterSecretStore to connect to Alicloud KMS，need create secret first.
+# Because the access-key-id and access-key-secret are sensitive information, we recommend creating the secret manually or Use Jenkins.
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: volcengine-secret-store
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  provider:
+    alibaba:
+      regionID: cn-shanghai
+      auth:
+        secretRef:
+          accessKeyIDSecretRef:
+            name: volcengine-access-kms-secret
+            key: access-key-id
+            namespace: external-secrets
+          accessKeySecretSecretRef:
+            name: volcengine-access-kms-secret
+            key: access-key-secret
+            namespace: external-secrets
+{{- end }}
