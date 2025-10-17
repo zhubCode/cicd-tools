@@ -100,7 +100,7 @@ spec:
             - name: certs
               mountPath: {{ .Values.webhook.certDir }}
               readOnly: true
-          {{- if .Values.webhook.extraVolumeMounts }}
+          {{- if and .Values.webhook.extraVolumeMounts (eq .Values.cloud "alicloud") }}
           {{- toYaml .Values.webhook.extraVolumeMounts | nindent 12 }}
           {{- end }}
       {{- with .Values.webhook.extraInitContainers }}
@@ -111,7 +111,7 @@ spec:
         - name: certs
           secret:
             secretName: {{ include "external-secrets.fullname" . }}-webhook
-      {{- if .Values.webhook.extraVolumes }}
+      {{- if and .Values.webhook.extraVolumes (eq .Values.cloud "alicloud") }}
       {{- toYaml .Values.webhook.extraVolumes | nindent 8 }}
       {{- end }}
       {{- with .Values.webhook.nodeSelector | default .Values.global.nodeSelector }}

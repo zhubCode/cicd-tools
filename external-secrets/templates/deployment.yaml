@@ -114,7 +114,7 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.extraVolumeMounts }}
+          {{- if and .Values.extraVolumeMounts (eq .Values.cloud "alicloud") }}
           volumeMounts:
           {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
           {{- end }}
@@ -130,7 +130,7 @@ spec:
       dnsConfig:
           {{- toYaml .Values.dnsConfig | nindent 8 }}
       {{- end }}
-      {{- if .Values.extraVolumes }}
+      {{- if and .Values.extraVolumes (eq .Values.cloud "alicloud") }}
       volumes:
       {{- toYaml .Values.extraVolumes | nindent 8 }}
       {{- end }}

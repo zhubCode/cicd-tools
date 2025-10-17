@@ -98,7 +98,7 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.certController.extraVolumeMounts }}
+          {{- if and .Values.certController.extraVolumeMounts (eq .Values.cloud "alicloud") }}
           volumeMounts:
           {{- toYaml .Values.certController.extraVolumeMounts | nindent 12 }}
           {{- end }}
@@ -106,7 +106,7 @@ spec:
       initContainers:
         {{- tpl (toYaml . | nindent 8) $ }}
       {{- end }}
-      {{- if .Values.certController.extraVolumes }}
+      {{- if and .Values.certController.extraVolumes (eq .Values.cloud "alicloud") }}
       volumes:
       {{- toYaml .Values.certController.extraVolumes | nindent 8 }}
       {{- end }}

@@ -645,3 +645,6 @@ dnsConfig: {}
 
 # -- Any extra pod spec on the deployment
 podSpecExtra: {}
+
+# Cloud provider configuration
+cloud: "volcengine"  # Options: alicloud, volcengine

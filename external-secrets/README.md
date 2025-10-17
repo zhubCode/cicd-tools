@@ -74,14 +74,15 @@ After the initial creation with `kubectl create`, subsequent updates through Arg
 Once External Secrets is deployed, you can create ExternalSecret resources to sync secrets from external providers. Here's an example:
 
 ```yaml
+# Alicloud KMS Example
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: example
+  name: example-secret
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    name: alibaba-rrsa-store
+    name: alibaba-rrsa-store # Reference to the ClusterSecretStore created for Alicloud
     kind: ClusterSecretStore
   target:
     name: example-secret
@@ -98,6 +99,33 @@ spec:
         key: acs/ram/user/idaas-api # Name of the secret in alicloud kms
         property: AccessKeySecret # Specific key in the secret
 ```
+```yaml
+# Volcengine KMS Example
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example-secret
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: volcengine-secret-store # Reference to the ClusterSecretStore created for Volcengine
+    kind: ClusterSecretStore
+  target:
+    name: example-secret
+  data:
+    - secretKey: secret-key # if you want get the whole secret
+      remoteRef:
+        key: acs/ram/user/idaas-api # Name of the secret in alicloud kms
+    - secretKey: access-key-id
+      remoteRef:
+        key: acs/ram/user/idaas-api # Name of the secret in alicloud kms
+        property: AccessKeyId # Specific key in the secret
+    - secretKey: access-key-secret 
+      remoteRef:
+        key: acs/ram/user/idaas-api # Name of the secret in alicloud kms
+        property: AccessKeySecret # Specific key in the secret
+```
+
 
 This example demonstrates:
 - **refreshInterval**: How often to sync the secret (1 hour in this case)
