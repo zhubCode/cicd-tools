@@ -209,6 +209,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: atlantis-data
   namespace: atlantis
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false
   labels:
     app: atlantis
     chart: atlantis-5.18.2
