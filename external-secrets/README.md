@@ -63,6 +63,14 @@ For these issues, use ArgoCD's **Desired Manifest** to perform `kubectl create` 
    kubectl create -f <manifest-file>
    ```
 
+There are another solution is to add the following annotation to the CRD templates in the Helm chart:
+
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=true
+```
+
 **Important:** Do not use `kubectl apply` for initial deployment, as it loads schema information into annotations, which can cause the "Too long: may not be more than 262144 bytes" error.
 
 After the initial creation with `kubectl create`, subsequent updates through ArgoCD should work normally.
