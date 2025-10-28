@@ -106,9 +106,11 @@ data:
         plan:
           steps:
           - init
+          - run: /atlantis/scripts/branch-sync-check
           - plan
         apply:
           steps:
+          - run: /atlantis/scripts/branch-sync-check
           - run: /atlantis/scripts/apply-gate
           - apply
 ---
@@ -142,6 +144,75 @@ metadata:
     release: atlantis
     heritage: Helm
 data:
+  branch-sync-check: |
+    #!/bin/bash
+    set -e
+    
+    echo "=== Branch Sync Check ==="
+    echo "Pull Request: $PULL_NUM"
+    echo "Repository: $HEAD_REPO_OWNER/$HEAD_REPO_NAME"
+    echo "=========================="
+    
+    # Check required environment variables
+    if [ -z "$PULL_NUM" ] || [ -z "$HEAD_REPO_OWNER" ] || [ -z "$HEAD_REPO_NAME" ] || [ -z "$ATLANTIS_GITLAB_TOKEN" ]; then
+      echo "ERROR: Required Atlantis environment variables are not set"
+      echo "PULL_NUM: $PULL_NUM"
+      echo "HEAD_REPO_OWNER: $HEAD_REPO_OWNER"
+      echo "HEAD_REPO_NAME: $HEAD_REPO_NAME"
+      echo "ATLANTIS_GITLAB_TOKEN: ${ATLANTIS_GITLAB_TOKEN:+SET}"
+      exit 1
+    fi
+
+    # Check if MR branch is behind main branch
+    echo "Checking if MR branch is up to date with main..."
+    
+    # Get MR details to check if it's behind main
+    MR_API_URL="https://git.zyql.com/api/v4/projects/$HEAD_REPO_OWNER%2F$HEAD_REPO_NAME/merge_requests/$PULL_NUM?include_diverged_commits_count=true"
+    echo "MR API URL: $MR_API_URL"
+    
+    MR_RESPONSE=$(curl -s -H "Authorization: Bearer $ATLANTIS_GITLAB_TOKEN" "$MR_API_URL")
+    
+    if [ $? -ne 0 ]; then
+      echo "ERROR: Failed to call GitLab API for MR details"
+      exit 1
+    fi
+    
+    # Check if response contains error
+    if echo "$MR_RESPONSE" | grep -q '"message"'; then
+      echo "ERROR: GitLab API returned error for MR details"
+      echo "Response: $MR_RESPONSE"
+      exit 1
+    fi
+    
+    # Check for merge conflicts
+    echo "Checking for merge conflicts..."
+    if echo "$MR_RESPONSE" | grep -q '"merge_status":"cannot_be_merged"'; then
+      echo ""
+      echo "❌ OPERATION BLOCKED: MR has merge conflicts!"
+      echo "Please resolve all merge conflicts before proceeding."
+      echo ""
+      exit 1
+    elif echo "$MR_RESPONSE" | grep -q '"merge_status":"can_be_merged"'; then
+      echo "✅ No merge conflicts detected"
+    else
+      echo "⚠️  Unable to determine merge status, proceeding with caution..."
+    fi
+    
+    # Check if MR has diverged commits (behind main)
+    if echo "$MR_RESPONSE" | grep -q '"diverged_commits_count":[1-9]'; then
+      echo ""
+      echo "❌ OPERATION BLOCKED: MR branch is behind main branch!"
+      echo "Please sync your branch with the latest main branch before proceeding."
+      echo ""
+      # Extract diverged commits count
+      DIVERGED_COUNT=$(echo "$MR_RESPONSE" | grep -o '"diverged_commits_count":[0-9]*' | grep -o '[0-9]*')
+      if [ ! -z "$DIVERGED_COUNT" ]; then
+        echo "Your branch is $DIVERGED_COUNT commits behind main."
+      fi
+      exit 1
+    fi
+    
+    echo "✅ Branch is up to date with main, proceeding..."
   apply-gate: |
     #!/bin/bash
     set -e
@@ -256,6 +327,8 @@ kind: StatefulSet
 metadata:
   name: atlantis
   namespace: atlantis
+  annotations:
+    reloader.stakater.com/auto: "true"
   labels:
     app: atlantis
     chart: atlantis-5.18.2
