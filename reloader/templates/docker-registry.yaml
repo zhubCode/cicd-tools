@@ -1,0 +1,40 @@
+# Because the image is locate in public registry, so we don't need to create ExternalSecret for docker-registry.
+# If you need to use private registry, you can uncomment the following code and modify it accordingly.
+# apiVersion: external-secrets.io/v1
+# kind: ExternalSecret
+# metadata:
+#   name: {{ .Values.global.dockerRegistry }}
+#   namespace: {{ .Values.namespace | default .Release.Namespace }}
+# spec:
+#   refreshInterval: 1h
+#   secretStoreRef:
+#     name: volcengine-secret-store
+#     kind: ClusterSecretStore
+#   target:
+#     name: {{ .Values.global.dockerRegistry }}
+#     template:
+#       type: kubernetes.io/dockerconfigjson
+#       data:
+#         .dockerconfigjson: |
+#           {
+#             "auths": {
+#               "{{ "{{" }} .registry {{ "}}" }}": {
+#                 "username": "{{ "{{" }} .username {{ "}}" }}",
+#                 "password": "{{ "{{" }} .password {{ "}}" }}",
+#                 "auth": "{{ "{{ printf \"%s:%s\" .username .password | b64enc }}" }}"
+#               }
+#             }
+#           }
+#   data:
+#     - secretKey: username
+#       remoteRef:
+#         key: /zyql/infra/docker/registry/secret
+#         property: username
+#     - secretKey: password
+#       remoteRef:
+#         key: /zyql/infra/docker/registry/secret
+#         property: password
+#     - secretKey: registry
+#       remoteRef:
+#         key: /zyql/infra/docker/registry/secret
+#         property: registry
