@@ -1,0 +1,30 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gitlab-pull-auth
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: gitlab-pull-auth
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: gitlab-pull-auth
+      data:
+        gitlab-username: "{{ .username }}"
+        gitlab-password: "{{ .password }}"        
+        
+  data:
+    - secretKey: username
+      remoteRef:
+        key: /zyql/aios/gitlab/code-pull/secret
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: /zyql/aios/gitlab/code-pull/secret
+        property: password

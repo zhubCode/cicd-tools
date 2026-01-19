@@ -1,0 +1,36 @@
+[[runners]]
+  [runners.kubernetes]
+    namespace = "gitlab-runner"
+    image = "reg.zyql.com/devops/python-deploy:3.11"
+    helper_image = "reg.zyql.com/library/gitlab-runner-helper:x86_64-v18.6.1"
+    image_pull_secrets = ["docker-registry"]
+    # job resource request and limit.
+    [runners.kubernetes.resource_requirements]
+      limits = { cpu = "1", memory = "2Gi" }
+      requests = { cpu = "500m", memory = "1Gi" }
+    [runners.kubernetes.volumes]
+    [[runners.kubernetes.volumes.secret]]
+      name = "docker-registry"
+      mount_path = "/secrets"
+      read_only = true
+      [runners.kubernetes.volumes.secret.items]
+      ".dockerconfigjson" = "config.json"
+    [[runners.kubernetes.volumes.secret]]
+      name = "app-signing-keys"
+      mount_path = "/keystore"
+      read_only = true
+    [[runners.kubernetes.volumes.secret]]
+      name = "nexus-auth"
+      mount_path = "/nexus-secrets"
+      read_only = true
+    [[runners.kubernetes.volumes.secret]]
+      name = "feishu-auth"
+      mount_path = "/feishu-secrets"
+      read_only = true
+    [[runners.kubernetes.volumes.secret]]
+      name = "gitlab-pull-auth"
+      mount_path = "/gitlab-secrets"
+      read_only = true
+    # Pod labels
+    [runners.kubernetes.pod_labels]
+      "managed-by" = "gitlab-runner"

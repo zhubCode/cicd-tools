@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+  - docker-registry.yaml
+  - gitlab-runner-token.yaml
+  - app-signing-keys.yaml
+  - nexus-auth.yaml
+  - feishu-auth.yaml
+  - gitlab-pull-auth.yaml
+
+configMapGenerator:
+  - name: gitlab-runner
+    behavior: merge
+    files:
+      - config.template.toml=config-files/config.template.toml
+patches:
+  - path: deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: gitlab-runner
+      

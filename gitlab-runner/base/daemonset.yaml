@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gitlab-runner-image-prepull
+  namespace: gitlab-runner
+spec:
+  selector:
+    matchLabels:
+      app: gitlab-runner-image-prepull
+  template:
+    metadata:
+      labels:
+        app: gitlab-runner-image-prepull
+    spec:
+      imagePullSecrets:
+      - name: docker-registry
+      containers:
+      - name: jdk11-android36
+        image: reg.zyql.com/devops/android-build@sha256:81421747018cb93b1518b7d66bdb2d6f701cf04ec979e41dfe977d467b308ca4
+        command: ["sleep", "360000"]
+      - name: jdk17-android36
+        image: reg.zyql.com/devops/android-build@sha256:184c55f44f4460c5d2a7f027d510855f0b757461091b68da4847e4809eef7b83
+        command: ["sleep", "360000"]

@@ -1,0 +1,35 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: nexus-auth
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: nexus-auth
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: nexus-auth
+      data:
+        nexus-url: "{{ .nexus_url }}"
+        nexus-username: "{{ .nexus_username }}"
+        nexus-password: "{{ .nexus_password }}"      
+        
+  data:
+    - secretKey: nexus_url
+      remoteRef:
+        key: /zyql/aios/gitlab/nexus-user/secret
+        property: url
+    - secretKey: nexus_username
+      remoteRef:
+        key: /zyql/aios/gitlab/nexus-user/secret
+        property: user-rw
+    - secretKey: nexus_password
+      remoteRef:
+        key: /zyql/aios/gitlab/nexus-user/secret
+        property: password-rw

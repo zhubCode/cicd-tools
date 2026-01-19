@@ -1,0 +1,26 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gitlab-runner
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: gitlab-runner
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: gitlab-runner
+      data:
+        runner-registration-token: ""
+        runner-token: "{{ .gitlab_runner_token }}"        
+        
+  data:
+    - secretKey: gitlab_runner_token
+      remoteRef:
+        key: /zyql/aios/gitlab/runner/secret
+        property: gitlab-runner-token

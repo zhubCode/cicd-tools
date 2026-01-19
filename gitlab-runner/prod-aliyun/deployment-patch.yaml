@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-runner
+spec:
+  template:
+    spec:
+      volumes:
+      - name: projected-secrets
+        projected:
+          sources:
+            - secret:
+                name: gitlab-runner
+                items:
+                  - key: runner-registration-token
+                    path: runner-registration-token
+                  - key: runner-token
+                    path: runner-token
+            - secret:
+                name: docker-registry
+                items:
+                  - key: .dockerconfigjson
+                    path: config.json
+            - secret:
+                name: app-signing-keys
+                items:
+                  - key: password
+                    path: password
+                  - key: zyql-aios-keystore-base64
+                    path: zyql-aios-keystore-base64
+            - secret:
+                name: nexus-auth
+                items:
+                  - key: nexus-url
+                    path: nexus-url
+                  - key: nexus-username
+                    path: nexus-username
+                  - key: nexus-password
+                    path: nexus-pasword
+            - secret:
+                name: feishu-auth
+                items:
+                  - key: feishu-app-id
+                    path: feishu-app-id
+                  - key: feishu-app-secret
+                    path: feishu-app-secret
+            - secret:
+                name: gitlab-pull-auth
+                items:
+                  - key: gitlab-username
+                    path: gitlab-username
+                  - key: gitlab-password
+                    path: gitlab-password
