@@ -1,0 +1,30 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: app-signing-keys
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: app-signing-keys
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: gitlab-runner
+      data:
+        password: "{{ .password }}"
+        zyql-aios-keystore-base64: "{{ .zyql_aios_keystore_base64 }}"        
+        
+  data:
+    - secretKey: password
+      remoteRef:
+        key: /zyql/aios/app-signing-keys/secret
+        property: password
+    - secretKey: zyql_aios_keystore_base64
+      remoteRef:
+        key: /zyql/aios/app-signing-keys/secret
+        property: zyql_aios_keystore_base64

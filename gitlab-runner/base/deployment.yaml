@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab-runner
+  namespace: gitlab-runner
+  annotations:
+    reloader.stakater.com/auto: "true"
+  labels:
+    app: gitlab-runner
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: gitlab-runner
+  template:
+    metadata:
+      labels:
+        app: gitlab-runner
+      annotations:
+        checksum/configmap: 430666f75c161e006ce0f3dd74a8fb4a0e483705a2cd4eac687b040fa95607ca
+        checksum/secrets: 7ffda4b22c3a870429f546ba932740c4311df953c831934fcc3eeac691794dbd
+    spec:
+      securityContext: 
+        fsGroup: 65533
+        runAsUser: 100
+      terminationGracePeriodSeconds: 3600
+      serviceAccountName: gitlab-runner
+      imagePullSecrets:
+      - name: docker-registry
+      containers:
+      - name: gitlab-runner
+        image: reg.zyql.com/library/gitlab-runner:alpine-v18.6.1
+        imagePullPolicy: "IfNotPresent"
+        securityContext: 
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/entrypoint", "unregister", "--all-runners"]
+        command: ["/usr/bin/dumb-init", "--", "/bin/bash", "/configmaps/entrypoint"]
+        env:        
+        - name: CI_SERVER_URL
+          value: "https://git.zyql.com/"
+        - name: RUNNER_EXECUTOR
+          value: "kubernetes"
+        - name: REGISTER_LOCKED
+          value: "true"
+        - name: RUNNER_TAG_LIST
+          value: ""
+        - name: SESSION_SERVER_ADDRESS
+          value:
+        livenessProbe:
+          exec:
+            command: ["/bin/bash", "/configmaps/check-live", "3"]
+          initialDelaySeconds: 60
+          timeoutSeconds: 4
+          periodSeconds: 60
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: ["/usr/bin/pgrep","gitlab.*runner"]
+          initialDelaySeconds: 60
+          timeoutSeconds: 4
+          periodSeconds: 60
+          successThreshold: 1
+          failureThreshold: 3
+        ports:
+        - name: "metrics"
+          containerPort: 9252
+        volumeMounts:
+        - name: projected-secrets
+          mountPath: /secrets
+        - name: etc-gitlab-runner
+          mountPath: /home/gitlab-runner/.gitlab-runner
+        - name: configmaps
+          mountPath: /configmaps
+        resources:
+          {}
+      volumes:
+      - name: runner-secrets
+        emptyDir:
+          medium: "Memory"
+      - name: etc-gitlab-runner
+        emptyDir:
+          medium: "Memory"
+      - name: projected-secrets
+        projected:
+          sources:
+            - secret:
+                name: gitlab-runner
+                items:
+                  - key: runner-registration-token
+                    path: runner-registration-token
+                  - key: runner-token
+                    path: runner-token
+            - secret:
+                name: docker-registry
+                items:
+                  - key: .dockerconfigjson
+                    path: config.json
+      - name: configmaps
+        configMap:
+          name: gitlab-runner

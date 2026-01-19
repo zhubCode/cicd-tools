@@ -1,0 +1,30 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: feishu-auth
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: feishu-auth
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: feishu-auth
+      data:
+        feishu-app-id: "{{ .app_id }}"
+        feishu-app-secret: "{{ .app_secret }}"      
+        
+  data:
+    - secretKey: app_id
+      remoteRef:
+        key: /zyql/aios/gitlab/feishu-robot/secret
+        property: app-id
+    - secretKey: app_secret
+      remoteRef:
+        key: /zyql/aios/gitlab/feishu-robot/secret
+        property: app-secret
