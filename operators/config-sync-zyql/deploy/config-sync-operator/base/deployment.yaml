@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-sync-operator
+  namespace: config-sync-system
+  labels:
+    app: config-sync-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-sync-operator
+  template:
+    metadata:
+      labels:
+        app: config-sync-operator
+    spec:
+      serviceAccountName: config-sync-operator
+      imagePullSecrets:
+      - name: docker-registry
+      initContainers:
+      - name: wait-for-cert
+        image: reg.zyql.com/library/busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for webhook certificate..."
+          for i in $(seq 1 60); do
+            if [ -f /tmp/k8s-webhook-server/serving-certs/tls.crt ]; then
+              echo "Certificate found!"
+              exit 0
+            fi
+            echo "Attempt $i: Certificate not found, waiting..."
+            sleep 2
+          done
+          echo "Timeout waiting for certificate"
+          exit 1
+        volumeMounts:
+        - name: cert
+          mountPath: /tmp/k8s-webhook-server/serving-certs
+          readOnly: true
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65532
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      containers:
+      - name: manager
+        image: reg.zyql.com/devops/config-sync-operator@sha256:00b44b82168e78676584679dde9c9856b6a37a81ace654e04cc875ccf699dbc3
+        imagePullPolicy: IfNotPresent
+        command:
+        - /manager
+        args:
+        - "--enable-deployment=true"
+        - "--metrics-bind-address=:8080"
+        - "--health-probe-bind-address=:8081"
+        - "--webhook-port=9443"
+        - "--cert-dir=/tmp/k8s-webhook-server/serving-certs"
+        env:
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        - containerPort: 9443
+          name: webhook
+          protocol: TCP
+        volumeMounts:
+        - name: cert
+          mountPath: /tmp/k8s-webhook-server/serving-certs
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 100m
+            memory: 256Mi
+          requests:
+            cpu: 20m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+      volumes:
+      - name: cert
+        secret:
+          secretName: config-sync-webhook-cert
+          defaultMode: 420
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault

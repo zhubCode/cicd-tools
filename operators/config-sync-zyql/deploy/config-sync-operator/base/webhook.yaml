@@ -1,0 +1,54 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: config-sync-validating-webhook
+  annotations:
+    cert-manager.io/inject-ca-from: config-sync-system/config-sync-webhook-cert
+webhooks:
+- name: vsecret.kb.io
+  clientConfig:
+    service:
+      name: config-sync-webhook-service
+      namespace: config-sync-system
+      path: /validate-v1-secret
+      port: 443
+    # caBundle will be injected by cert-manager
+  rules:
+  - operations: ["UPDATE", "DELETE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["secrets"]
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  failurePolicy: Fail
+- name: vconfigmap.kb.io
+  clientConfig:
+    service:
+      name: config-sync-webhook-service
+      namespace: config-sync-system
+      path: /validate-v1-configmap
+      port: 443
+    # caBundle will be injected by cert-manager
+  rules:
+  - operations: ["UPDATE", "DELETE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["configmaps"]
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  failurePolicy: Fail
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-sync-webhook-service
+  namespace: config-sync-system
+spec:
+  selector:
+    app: config-sync-operator
+  ports:
+  - port: 443
+    targetPort: 9443
+    protocol: TCP
+    name: webhook

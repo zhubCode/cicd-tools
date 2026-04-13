@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: config-sync-system
+resources:
+  - docker-registry.yaml
+  - crd.yaml
+  - rbac.yaml
+  - cert-manager-certs.yaml
+  - webhook.yaml
+  - deployment.yaml
+configurations:
+  - kustomizeconfig.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/name: config-sync-operator
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/part-of: config-sync

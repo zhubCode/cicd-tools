@@ -1,0 +1,45 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: volcengine-tos-auth
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: volcengine-tos-auth
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: volcengine-tos-auth
+      data:
+        tos-endpoint: "{{ .tos_endpoint }}"
+        tos-region: "{{ .tos_region }}"
+        tos-bucket: "{{ .tos_bucket }}"
+        tos-access-key: "{{ .tos_access_key_id }}"
+        tos-secret-key: "{{ .tos_access_key_secret }}"     
+        
+  data:
+    - secretKey: tos_endpoint
+      remoteRef:
+        key: /zyql/infra/tos/aios-apk-released/secret
+        property: internal-endpoint
+    - secretKey: tos_region
+      remoteRef:
+        key: /zyql/infra/tos/aios-apk-released/secret
+        property: region
+    - secretKey: tos_bucket
+      remoteRef:
+        key: /zyql/infra/tos/aios-apk-released/secret
+        property: bucket
+    - secretKey: tos_access_key_id
+      remoteRef:
+        key: /zyql/infra/tos/aios-apk-released/secret
+        property: tos-access-key
+    - secretKey: tos_access_key_secret
+      remoteRef:
+        key: /zyql/infra/tos/aios-apk-released/secret
+        property: tos-secret-key

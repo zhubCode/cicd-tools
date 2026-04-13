@@ -1,0 +1,24 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: jira-auth
+  namespace: gitlab-runner
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: alibaba-rrsa-store
+    kind: ClusterSecretStore
+  target:
+    name: jira-auth
+    template:
+      type: Opaque
+      metadata:
+        labels:
+          app: jira-auth
+      data:
+        jira-token: "{{ .jira_token }}"
+  data:
+    - secretKey: jira_token
+      remoteRef:
+        key: /zyql/aios/gitlab/jira/secret
+        property: jira-token

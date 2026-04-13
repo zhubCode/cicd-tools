@@ -1,0 +1,8 @@
+{
+    "go.goroot": "/home/ubuntu/.goenv/versions/1.25.4",
+    "go.gopath": "/home/ubuntu/go/1.25.4",
+    "go.toolsEnvVars": {
+        "GOROOT": "/home/ubuntu/.goenv/versions/1.25.4",
+        "GOPATH": "/home/ubuntu/go/1.25.4"
+    }
+}

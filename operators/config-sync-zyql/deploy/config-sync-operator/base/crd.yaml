@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: config-sync-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: configsyncs.config.zyql.com
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+spec:
+  group: config.zyql.com
+  names:
+    kind: ConfigSync
+    listKind: ConfigSyncList
+    plural: configsyncs
+    singular: configsync
+  scope: Cluster
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: ConfigSync is the Schema for the configsyncs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object.'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents.'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ConfigSyncSpec defines the desired state of ConfigSync
+            properties:
+              sourceNamespace:
+                description: SourceNamespace is the namespace to sync from
+                type: string
+              targetNamespaces:
+                description: TargetNamespaces is the list of namespaces to sync to
+                items:
+                  type: string
+                type: array
+              excludedNamespaces:
+                description: ExcludedNamespaces is the list of namespaces to exclude from syncing
+                items:
+                  type: string
+                type: array
+              syncSecrets:
+                description: SyncSecrets enables syncing of Secrets
+                type: boolean
+              syncConfigMaps:
+                description: SyncConfigMaps enables syncing of ConfigMaps
+                type: boolean
+              secretSelector:
+                description: SecretSelector allows filtering which secrets to sync
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  matchExpressions:
+                    items:
+                      properties:
+                        key:
+                          type: string
+                        operator:
+                          type: string
+                        values:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                type: object
+              configMapSelector:
+                description: ConfigMapSelector allows filtering which configmaps to sync
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  matchExpressions:
+                    items:
+                      properties:
+                        key:
+                          type: string
+                        operator:
+                          type: string
+                        values:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                type: object
+              syncIntervalSeconds:
+                description: SyncIntervalSeconds is the interval in seconds between periodic syncs (default 300, minimum 60)
+                type: integer
+                default: 300
+                minimum: 60
+            type: object
+          status:
+            description: ConfigSyncStatus defines the observed state of ConfigSync
+            properties:
+              syncedSecrets:
+                type: integer
+              syncedConfigMaps:
+                type: integer
+              lastSyncTime:
+                format: date-time
+                type: string
+              conditions:
+                items:
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    reason:
+                      type: string
+                    message:
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                  required:
+                  - type
+                  - status
+                  type: object
+                type: array
+              targetNamespaceStatus:
+                items:
+                  properties:
+                    namespace:
+                      type: string
+                    syncedSecrets:
+                      type: integer
+                    syncedConfigMaps:
+                      type: integer
+                    lastSyncTime:
+                      format: date-time
+                      type: string
+                    status:
+                      type: string
+                    message:
+                      type: string
+                  required:
+                  - namespace
+                  - status
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
