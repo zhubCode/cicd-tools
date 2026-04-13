@@ -1,13 +1,29 @@
 [[runners]]
+  environment = ["FF_USE_ADVANCED_POD_SPEC_CONFIGURATION=true"]
   [runners.kubernetes]
     namespace = "gitlab-runner"
     image = "reg.zyql.com/devops/python-deploy:3.11"
     helper_image = "reg.zyql.com/library/gitlab-runner-helper:x86_64-v18.6.1"
     image_pull_secrets = ["docker-registry"]
-    # job resource request and limit.
-    [runners.kubernetes.resource_requirements]
-      limits = { cpu = "1", memory = "2Gi" }
-      requests = { cpu = "500m", memory = "1Gi" }
+    # helper resource request and limit.
+    helper_cpu_request = "200m"
+    helper_cpu_limit   = "500m"
+    helper_cpu_request_overwrite_max_allowed = "500m"
+    helper_cpu_limit_overwrite_max_allowed = "500m"
+    helper_memory_request = "256Mi"
+    helper_memory_limit   = "512Mi"
+    helper_memory_request_overwrite_max_allowed = "512Mi"
+    helper_memory_limit_overwrite_max_allowed = "512Mi"
+    # build pod resource request and limit.
+    cpu_request = "200m"
+    cpu_limit   = "500m"
+    cpu_request_overwrite_max_allowed = "16"
+    cpu_limit_overwrite_max_allowed = "16"
+    memory_request = "256Mi"
+    memory_limit   = "512Mi"
+    memory_request_overwrite_max_allowed = "32Gi"
+    memory_limit_overwrite_max_allowed = "32Gi"
+    # volume mounts
     [runners.kubernetes.volumes]
     [[runners.kubernetes.volumes.secret]]
       name = "docker-registry"
@@ -31,6 +47,21 @@
       name = "gitlab-pull-auth"
       mount_path = "/gitlab-secrets"
       read_only = true
+    [[runners.kubernetes.volumes.secret]]
+      name = "volcengine-tos-auth"
+      mount_path = "/volcengine-tos-secrets"
+      read_only = true
+    [[runners.kubernetes.volumes.secret]]
+      name = "jira-auth"
+      mount_path = "/jira-secrets"
+      read_only = true
     # Pod labels
     [runners.kubernetes.pod_labels]
       "managed-by" = "gitlab-runner"
+    # Node selector
+    [runners.kubernetes.node_selector]
+      "project" = "android-build"
+    # Tolerations
+    [runners.kubernetes.node_tolerations]
+      "dedicated=special" = "NoSchedule"
+      "special=true" = "NoSchedule"

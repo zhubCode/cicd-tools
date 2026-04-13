@@ -16,11 +16,17 @@ spec:
         labels:
           app: gitlab-runner
       data:
-        runner-registration-token: ""
-        runner-token: "{{ .gitlab_runner_token }}"        
+        runner-registration-aios-token: ""
+        runner-aios-token: "{{ .gitlab_runner_aios_token }}"
+        runner-registration-framework-token: ""
+        runner-framework-token: "{{ .gitlab_runner_framework_token }}"
         
   data:
-    - secretKey: gitlab_runner_token
+    - secretKey: gitlab_runner_aios_token
       remoteRef:
         key: /zyql/aios/gitlab/runner/secret
-        property: gitlab-runner-token
+        property: gitlab-runner-aios-token
+    - secretKey: gitlab_runner_framework_token
+      remoteRef:
+        key: /zyql/aios/gitlab/runner/secret
+        property: gitlab-runner-framework-token

@@ -6,7 +6,8 @@ resources:
   - serviceaccount.yaml
   - role.yaml
   - rolebinding.yaml
-  - deployment.yaml
+  - deployment-aios.yaml
+  - deployment-framework.yaml
   - daemonset.yaml
 
 configMapGenerator:

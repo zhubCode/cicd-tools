@@ -8,15 +8,12 @@ resources:
   - nexus-auth.yaml
   - feishu-auth.yaml
   - gitlab-pull-auth.yaml
+  - volcengine-tos-auth.yaml
+  - jira-auth.yaml
 
 configMapGenerator:
   - name: gitlab-runner
     behavior: merge
     files:
       - config.template.toml=config-files/config.template.toml
-patches:
-  - path: deployment-patch.yaml
-    target:
-      kind: Deployment
-      name: gitlab-runner
       

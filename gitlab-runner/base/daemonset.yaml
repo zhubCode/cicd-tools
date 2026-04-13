@@ -12,6 +12,17 @@ spec:
       labels:
         app: gitlab-runner-image-prepull
     spec:
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "special"
+        effect: "NoSchedule"
+      - key: "special"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      nodeSelector:
+        project: "android-build"
       imagePullSecrets:
       - name: docker-registry
       containers:
@@ -20,4 +31,10 @@ spec:
         command: ["sleep", "360000"]
       - name: jdk17-android36
         image: reg.zyql.com/devops/android-build@sha256:184c55f44f4460c5d2a7f027d510855f0b757461091b68da4847e4809eef7b83
+        command: ["sleep", "360000"]
+      - name: jdk21-android36
+        image: reg.zyql.com/devops/android-build@sha256:1b21e8f5c1a195429ac4242dd537f1d2b3788a4f485c38ef931100383f75f8f7
+        command: ["sleep", "360000"]
+      - name: jdk17-android36-cmake
+        image: reg.zyql.com/devops/android-build@sha256:15a4441889007c8ecb5cb458012f6c2e86a8677e868445f1559c486edcdeb9b7
         command: ["sleep", "360000"]

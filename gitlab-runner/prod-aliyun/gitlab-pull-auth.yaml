@@ -17,7 +17,8 @@ spec:
           app: gitlab-pull-auth
       data:
         gitlab-username: "{{ .username }}"
-        gitlab-password: "{{ .password }}"        
+        gitlab-password: "{{ .password }}"
+        gitlab-private-token: "{{ .gitlab_pipeline_trigger_token }}"       
         
   data:
     - secretKey: username
@@ -28,3 +29,7 @@ spec:
       remoteRef:
         key: /zyql/aios/gitlab/code-pull/secret
         property: password
+    - secretKey: gitlab_pipeline_trigger_token
+      remoteRef:
+        key: /zyql/aios/gitlab/pipeline-trigger-token/secret
+        property: gitlab-pipeline-trigger-token
